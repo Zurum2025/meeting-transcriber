@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard mt-5">
+    <h2 class="mb-4 text-center">Welcome {{ current_user.Name if current_user.is_authenticated else 'Guest' }}</h2>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="row justify-content-center">
+        <!-- My Meetings -->
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">My Meetings</h5>
+                    <p class="card-text">View and manage your meetings.</p>
+                    <a href="{{ url_for('my_meetings') }}" class="btn btn-primary">My Meetings</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel (for admins only) -->
+        {% if current_user.is_admin %}
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Admin Panel</h5>
+                    <p class="card-text">Manage users, meetings, and recordings.</p>
+                    <a href="{{ url_for('admin_panel') }}" class="btn btn-danger">Admin Panel</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Start a Meeting -->
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Start a Meeting</h5>
+                    <p class="card-text">Create a new meeting room.</p>
+                    <form method="post">
+                        <button type="submit" name="start" class="btn btn-primary">Create Meeting</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Join a Meeting -->
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Join a Meeting</h5>
+                    <p class="card-text">Enter a meeting code to join.</p>
+                    <form method="post">
+                        <input type="text" name="code" placeholder="Enter Meeting Code" class="form-control mb-3" required>
+                        <button type="submit" name="join" class="btn btn-outline-primary">Join</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout -->
+    <div class="text-center mt-4">
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+# Virtual environments
+maenv/
+venv/
+env/
+*.env
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# FFmpeg and local builds
+ffmpeg-7.1.1-essentials_build/
+
+# Binary files (do not track compiled/executable libs)
+*.exe
+*.dll
+*.lib
+*.so
+
+# Model/data files
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.zip
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE & OS
+.vscode/
+.idea/
+*.suo
+*.user
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# OneDrive/Temp
+*.lnk
+
+# audio files
+recordings/
+*.webm
+
+#uploads
+Uploads/
+
+#migrations
+migrations/
+
+#database
+instance/
+*.sqlite3

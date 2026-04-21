@@ -1,0 +1,49 @@
+body {
+    background-color: #f2f5f9;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.navbar {
+    background-color: #0d6efd;
+}
+
+.navbar a,
+.navbar span {
+    color: white !important;
+}
+
+.dashboard {
+    max-width: 600px;
+    margin: 5rem auto;
+    background: white;
+    padding: 2.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+h2 {
+    font-weight: 600;
+}
+
+.btn-primary,
+.btn-outline-primary {
+    width: 100%;
+}
+
+.form-control {
+    height: 48px;
+}
+
+.section-title {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #0d6efd;
+}
+
+#meetingTimer {
+    font-size: 1rem;
+    color: #6c757d;
+    margin-top: 1rem;
+}

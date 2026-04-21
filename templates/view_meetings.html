@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h1>My Meetings</h1>
+  {% if meetings %}
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Code</th>
+        <th>Audio</th>
+        <th>Transcription</th>
+        <th>Summary</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for meeting in meetings %}
+      <tr>
+        <td>{{ meeting.Title }}</td>
+        <td>{{ meeting.MeetingCode }}</td>
+        <td>
+          {% set audio = audios[meeting.MeetingCode] %}
+          {% if audio %}
+          <a href="{{ url_for('download_audio', audio_id=audio.AudioID) }}" class="btn btn-sm btn-primary">Download</a>
+          {% else %}
+          None
+          {% endif %}
+        </td>
+        <td>
+          {% set transcript = transcripts[meeting.MeetingCode] %}
+          {% if transcript %}
+          <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#transcriptModal{{ transcript.TranscriptID }}">View</button>
+          <a href="{{ url_for('download_transcript', transcript_id=transcript.TranscriptID) }}" class="btn btn-sm btn-primary">Download</a>
+          <!-- Modal for viewing transcript -->
+          <div class="modal fade" id="transcriptModal{{ transcript.TranscriptID }}" tabindex="-1" aria-labelledby="transcriptModalLabel{{ transcript.TranscriptID }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="transcriptModalLabel{{ transcript.TranscriptID }}">Transcription for Meeting {{ meeting.Title }}</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <pre>{{ transcript.RawText }}</pre>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          None
+          {% endif %}
+        </td>
+        <td>
+          {% set minute = minutes[meeting.MeetingCode] %}
+          {% if minute %}
+          <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#minuteModal{{ minute.MinuteID }}">View</button>
+          <a href="{{ url_for('download_minutes', minute_id=minute.MinuteID) }}" class="btn btn-sm btn-primary">Download</a>
+          <!-- Modal for viewing summary -->
+          <div class="modal fade" id="minuteModal{{ minute.MinuteID }}" tabindex="-1" aria-labelledby="minuteModalLabel{{ minute.MinuteID }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="minuteModalLabel{{ minute.MinuteID }}">Summary for Meeting {{ meeting.Title }}</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <pre>{{ minute.SummaryText }}</pre>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          None
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>You have not attended any meetings.</p>
+  {% endif %}
+</div>
+{% endblock %}

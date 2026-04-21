@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center mt-5">
+  <h1 class="display-4">Create and Summarize Your Meetings Fast</h1>
+  <p class="lead">Create, summarize, and store your meetings. Get your minutes in real-time.</p>
+  <a href="{{ url_for('start_meeting') if current_user.is_authenticated else url_for('login') }}" class="btn btn-dark btn-lg rounded-pill mt-3">Start Now</a>
+</div>
+{% endblock %}
+
+<style>
+*{
+  text-align:center;
+}
+a{
+  text-decoration:none;
+  padding:1.125rem 1.7rem;
+  border-radius:999px;
+  color:#fff;
+  background:#1c1c1c;
+  border:none;
+}
+</style>

@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="mb-4">
+    <h2 class="text-primary">Meeting Code: {{ meeting.MeetingCode }}</h2>
+  </div>
+
+  <div class="card p-3 mb-4">
+    <h4 class="mb-2">Participants</h4>
+    <ul id="participantsList" class="list-group mb-3"></ul>
+    <p id="speakingStatus" class="text-success fw-semibold">Nobody is speaking</p>
+  </div>
+
+  <div class="d-flex gap-3 flex-wrap mb-4">
+    <button id="micToggle" class="btn btn-outline-primary">🎤 Mic On</button>
+    <div id="micStatus" class="align-self-center">Mic OFF</div>
+    {% if is_chairman %}
+    <button id="meetingControlBtn" class="btn btn-danger">🔴 Start Meeting</button>
+    {% else %}
+    <button id="exitBtn" class="btn btn-secondary">Exit</button>
+    {% endif %}
+    <div id="recordingStatus" class="align-self-center">The meeting has not started yet.</div>
+    <div class="badge bg-dark text-white p-2 fs-6" id="meetingTimer">Duration: 00:00:00</div>
+    <p id="endMessage" class="text-danger fw-bold" style="display:none;">The meeting has ended</p>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js" onerror="console.error('Failed to load Socket.IO from CDN');"></script>
+<script>
+  // Fallback for Socket.IO
+  if (typeof io === 'undefined') {
+    document.write('<script src="/static/socket.io.min.js"><\/script>');
+  }
+
+  const socket = io();
+  const code = {{ meeting.MeetingCode | tojson | safe }};
+  const name = {{ current_user.Name | tojson | safe }};
+  const userId = {{ current_user.UserID | tojson | safe }};
+  const isChairman = {{ is_chairman | tojson | safe }};
+  let localStream = null;
+  let recorder = null;
+  let chunks = [];
+  let isMeetingStarted = false;
+  let timerInterval = null;
+  let meetingSeconds = 0;
+  let speakingTimeout = null;
+
+  // Debug Socket.IO connection
+  socket.on('connect', () => {
+    console.log('Connected to Socket.IO server, isChairman:', isChairman);
+    socket.emit('join', { code: code, name: name, user_id: userId });
+  });
+  socket.on('connect_error', (error) => {
+    console.error('Socket.IO connection error:', error);
+  });
+
+  // Update participants
+  socket.on("participants", users => {
+    console.log('Received participants:', users);
+    const list = document.getElementById("participantsList");
+    list.innerHTML = "";
+    for (const [id, user] of Object.entries(users)) {
+      const li = document.createElement("li");
+      li.className = "list-group-item";
+      li.textContent = user;
+      list.appendChild(li);
+    }
+  });
+
+  // Initialize media stream
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    console.log('Microphone access granted');
+    localStream = stream;
+    document.getElementById('micStatus').textContent = 'Mic ON';
+
+    // Mic toggle
+    document.getElementById('micToggle').addEventListener('click', () => {
+      const track = stream.getAudioTracks()[0];
+      track.enabled = !track.enabled;
+      document.getElementById('micToggle').textContent = track.enabled ? '🎤 Mic On' : '🔇 Mic Off';
+      document.getElementById('micStatus').textContent = track.enabled ? 'Mic ON' : 'Mic OFF';
+    });
+
+    monitorSpeaking(stream);
+  }).catch(error => {
+    console.error('Error accessing microphone:', error);
+    document.getElementById('micStatus').textContent = 'Mic access denied';
+    if (isChairman) {
+      document.getElementById('meetingControlBtn').disabled = true;
+      document.getElementById('recordingStatus').textContent = 'Cannot start meeting: Microphone access denied';
+    }
+  });
+
+  function formatTime(seconds) {
+    const hrs = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+    const secs = String(seconds % 60).padStart(2, '0');
+    return `${hrs}:${mins}:${secs}`;
+  }
+
+  function startTimer(seconds = 0) {
+    meetingSeconds = seconds;
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      meetingSeconds++;
+      document.getElementById("meetingTimer").textContent = "Duration: " + formatTime(meetingSeconds);
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    document.getElementById("meetingTimer").textContent = "Duration: " + formatTime(meetingSeconds);
+  }
+
+  if (isChairman) {
+    function handleMeetingControl() {
+      const btn = document.getElementById("meetingControlBtn");
+      if (!isMeetingStarted) {
+        if (!localStream) {
+          console.error('Cannot start meeting: localStream is not initialized');
+          document.getElementById('recordingStatus').textContent = 'Cannot start meeting: Microphone access required';
+          return;
+        }
+        try {
+          isMeetingStarted = true;
+          chunks = [];
+          recorder = new MediaRecorder(localStream);
+          console.log('MediaRecorder initialized:', recorder);
+          recorder.ondataavailable = e => {
+            console.log('Data available:', e.data);
+            chunks.push(e.data);
+          };
+          recorder.onstop = async () => {
+            console.log('Recorder stopped, uploading audio');
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append("audio", blob, code + "_recording.webm");
+            try {
+              const response = await fetch(`/upload_audio?code=${code}`, {
+                method: "POST",
+                body: formData
+              });
+              if (response.ok) {
+                document.getElementById("recordingStatus").textContent = "Recording uploaded ✅";
+              } else {
+                console.error('Upload failed:', response.statusText);
+                document.getElementById('recordingStatus').textContent = "Upload failed";
+              }
+              socket.emit('meeting_ended', { code: code });
+            } catch (error) {
+              console.error('Upload error:', error);
+              document.getElementById('recordingStatus').textContent = "Upload error";
+            }
+          };
+          recorder.start();
+          console.log('Recording started');
+          btn.textContent = "End Meeting";
+          document.getElementById("recordingStatus").textContent = "Meeting Recording in progress... 🎙️";
+          startTimer();
+          socket.emit('meeting_started', { code: code, seconds: meetingSeconds });
+        } catch (error) {
+          console.error('Error starting recorder:', error);
+          document.getElementById('recordingStatus').textContent = 'Failed to start recording';
+          isMeetingStarted = false;
+          btn.textContent = "Start Meeting";
+        }
+      } else {
+        if (!recorder) {
+          console.error('Cannot stop meeting: recorder is not initialized');
+          document.getElementById('recordingStatus').textContent = 'Cannot stop meeting: Recorder not initialized';
+          return;
+        }
+        try {
+          recorder.stop();
+          console.log('Recording stop requested');
+          stopTimer();
+          btn.textContent = "Leave Meeting Room";
+          btn.onclick = () => window.location.href = "{{ url_for('start_meeting') }}";
+          document.getElementById("recordingStatus").textContent = "Recording Stopped";
+          document.getElementById("endMessage").style.display = "block";
+          isMeetingStarted = false;
+        } catch (error) {
+          console.error('Error stopping recorder:', error);
+          document.getElementById('recordingStatus').textContent = 'Failed to stop recording';
+        }
+      }
+    }
+    document.getElementById("meetingControlBtn").addEventListener('click', handleMeetingControl);
+  } else {
+    document.getElementById("exitBtn").addEventListener('click', () => {
+      window.location.href = "{{ url_for('start_meeting') }}";
+    });
+  }
+
+  // Handle meeting start/end events for all users
+  socket.on('meeting_started', data => {
+    console.log('Received meeting_started:', data);
+    isMeetingStarted = true;
+    document.getElementById("recordingStatus").textContent = "Meeting Recording in progress... 🎙️";
+    document.getElementById("endMessage").style.display = "none";
+    startTimer(data.seconds || 0);
+  });
+
+  socket.on('meeting_ended', data => {
+    console.log('Received meeting_ended:', data);
+    isMeetingStarted = false;
+    stopTimer();
+    document.getElementById("recordingStatus").textContent = "Recording Stopped";
+    document.getElementById("endMessage").style.display = "block";
+    if (!isChairman) {
+      document.getElementById("exitBtn").textContent = "Leave Meeting Room";
+    }
+  });
+
+  // Monitor speaking
+  function monitorSpeaking(stream) {
+    const ctx = new AudioContext();
+    const mic = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    mic.connect(analyser);
+    analyser.fftSize = 2048;
+    const dataArray = new Uint8Array(analyser.fftSize);
+    const threshold = 5;
+    let isSpeaking = false;
+
+    function detect() {
+      analyser.getByteTimeDomainData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const deviation = dataArray[i] - 128;
+        sum += deviation * deviation;
+      }
+      const volume = Math.sqrt(sum / dataArray.length);
+      if (volume > threshold && !isSpeaking) {
+        isSpeaking = true;
+        socket.emit('speaking', { code: code, name: name });
+      } else if (volume <= threshold && isSpeaking) {
+        isSpeaking = false;
+        socket.emit('stopped_speaking', { code: code, name: name });
+      }
+      requestAnimationFrame(detect);
+    }
+    detect();
+  }
+
+  // Show speaking status
+  socket.on('someone_speaking', data => {
+    console.log('Received someone_speaking:', data);
+    const status = document.getElementById("speakingStatus");
+    status.textContent = data.name ? `${data.name} is speaking 🎤` : 'Someone is speaking';
+    if (speakingTimeout) clearTimeout(speakingTimeout);
+    speakingTimeout = setTimeout(() => {
+      status.textContent = "Nobody is speaking";
+    }, 2000);
+  });
+
+  socket.on('someone_stopped', data => {
+    console.log('Received someone_stopped:', data);
+    document.getElementById("speakingStatus").textContent = "Nobody is speaking";
+  });
+</script>
+{% endblock %}
