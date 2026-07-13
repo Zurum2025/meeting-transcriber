@@ -1,15 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Transcription Result</title>
-</head>
-<body>
-  <h2>Transcript:</h2>
+{% extends "base.html" %}
+{% block title %}Transcription Result — AI Transcriber{% endblock %}
+{% block content %}
+<div class="utility-shell">
+  <span class="eyebrow">Standalone test</span>
+  <h2>Transcription result</h2>
+
+  <h3 class="mt-4">Transcript</h3>
   <pre>{{ transcript }}</pre>
 
-  <h2>Summary:</h2>
+  <h3 class="mt-4">Summary</h3>
   <pre>{{ summary }}</pre>
 
-  <a href="{{ url_for('test_upload') }}">Upload another</a>
-</body>
-</html>
+  <a href="{{ url_for('test_upload') }}" class="btn btn-outline-primary mt-3">Upload another</a>
+</div>
+{% endblock %}

@@ -1,2 +1,16 @@
-<h1>403 - Forbidden</h1>
-<p>You don't have permission to access this page.</p>
+{% extends "base.html" %}
+{% block title %}Access denied — AI Transcriber{% endblock %}
+{% block content %}
+<div class="state-shell">
+  <div class="state-card">
+    <div class="state-waveform" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <h1>403 — Access denied</h1>
+    <p>{{ error if error else "You don't have permission to view this page." }}</p>
+    <a href="{{ url_for('start_meeting') if current_user.is_authenticated else url_for('login') }}" class="btn btn-primary rounded-pill">
+      {{ 'Back to dashboard' if current_user.is_authenticated else 'Back to login' }}
+    </a>
+  </div>
+</div>
+{% endblock %}

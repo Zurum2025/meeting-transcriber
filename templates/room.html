@@ -1,30 +1,60 @@
 {% extends "base.html" %}
+{% block title %}Meeting {{ meeting.MeetingCode }} — AI Transcriber{% endblock %}
 {% block content %}
-<div class="container mt-4">
-  <div class="mb-4">
-    <h2 class="text-primary">Meeting Code: {{ meeting.MeetingCode }}</h2>
+<div class="container room-wrap">
+
+  <div class="room-topbar">
+    <div class="room-code-chip">
+      Meeting code <strong>{{ meeting.MeetingCode }}</strong>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div class="badge bg-dark text-white p-2 fs-6" id="meetingTimer">Duration: 00:00:00</div>
+    </div>
   </div>
 
-  <div class="card p-3 mb-4">
-    <h4 class="mb-2">Participants</h4>
-    <ul id="participantsList" class="list-group mb-3"></ul>
-    <p id="speakingStatus" class="text-success fw-semibold">Nobody is speaking</p>
-  </div>
+  <div class="room-grid">
 
-  <div class="d-flex gap-3 flex-wrap mb-4">
-    <button id="micToggle" class="btn btn-outline-primary">🎤 Mic On</button>
-    <div id="micStatus" class="align-self-center">Mic OFF</div>
-    {% if is_chairman %}
-    <button id="meetingControlBtn" class="btn btn-danger">🔴 Start Meeting</button>
-    {% else %}
-    <button id="exitBtn" class="btn btn-secondary">Exit</button>
-    {% endif %}
-    <div id="recordingStatus" class="align-self-center">The meeting has not started yet.</div>
-    <div class="badge bg-dark text-white p-2 fs-6" id="meetingTimer">Duration: 00:00:00</div>
-    <p id="endMessage" class="text-danger fw-bold" style="display:none;">The meeting has ended</p>
+    <!-- Participants panel -->
+    <div class="card panel">
+      <div class="panel-title">
+        <h4>Participants</h4>
+      </div>
+      <ul id="participantsList" class="list-group mb-3"></ul>
+      <p id="speakingStatus" class="text-success fw-semibold">Nobody is speaking</p>
+    </div>
+
+    <!-- Controls panel -->
+    <div class="card panel">
+      <div class="panel-title">
+        <h4>Controls</h4>
+      </div>
+
+      <div class="live-waveform" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+
+      <div class="control-row">
+        <button id="micToggle" class="btn btn-outline-primary">🎤 Mic On</button>
+        <div id="micStatus" class="align-self-center">Mic OFF</div>
+      </div>
+
+      <div class="control-row">
+        {% if is_chairman %}
+        <button id="meetingControlBtn" class="btn btn-danger">🔴 Start Meeting</button>
+        {% else %}
+        <button id="exitBtn" class="btn btn-secondary">Exit</button>
+        {% endif %}
+        <div id="recordingStatus" class="align-self-center">The meeting has not started yet.</div>
+      </div>
+
+      <p id="endMessage" class="text-danger fw-bold" style="display:none;">The meeting has ended</p>
+    </div>
+
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" onerror="console.error('Failed to load Socket.IO from CDN');"></script>
 <script>
   // Fallback for Socket.IO
@@ -63,6 +93,7 @@
       const li = document.createElement("li");
       li.className = "list-group-item";
       li.textContent = user;
+      li.dataset.initial = (user || '?').trim().charAt(0).toUpperCase();
       list.appendChild(li);
     }
   });
@@ -123,6 +154,7 @@
         }
         try {
           isMeetingStarted = true;
+          document.body.classList.add('is-live');
           chunks = [];
           recorder = new MediaRecorder(localStream);
           console.log('MediaRecorder initialized:', recorder);
@@ -162,6 +194,7 @@
           console.error('Error starting recorder:', error);
           document.getElementById('recordingStatus').textContent = 'Failed to start recording';
           isMeetingStarted = false;
+          document.body.classList.remove('is-live');
           btn.textContent = "Start Meeting";
         }
       } else {
@@ -174,6 +207,7 @@
           recorder.stop();
           console.log('Recording stop requested');
           stopTimer();
+          document.body.classList.remove('is-live');
           btn.textContent = "Leave Meeting Room";
           btn.onclick = () => window.location.href = "{{ url_for('start_meeting') }}";
           document.getElementById("recordingStatus").textContent = "Recording Stopped";
@@ -196,6 +230,7 @@
   socket.on('meeting_started', data => {
     console.log('Received meeting_started:', data);
     isMeetingStarted = true;
+    document.body.classList.add('is-live');
     document.getElementById("recordingStatus").textContent = "Meeting Recording in progress... 🎙️";
     document.getElementById("endMessage").style.display = "none";
     startTimer(data.seconds || 0);
@@ -204,6 +239,7 @@
   socket.on('meeting_ended', data => {
     console.log('Received meeting_ended:', data);
     isMeetingStarted = false;
+    document.body.classList.remove('is-live');
     stopTimer();
     document.getElementById("recordingStatus").textContent = "Recording Stopped";
     document.getElementById("endMessage").style.display = "block";
@@ -248,15 +284,18 @@
     console.log('Received someone_speaking:', data);
     const status = document.getElementById("speakingStatus");
     status.textContent = data.name ? `${data.name} is speaking 🎤` : 'Someone is speaking';
+    status.classList.add('is-active');
     if (speakingTimeout) clearTimeout(speakingTimeout);
     speakingTimeout = setTimeout(() => {
       status.textContent = "Nobody is speaking";
+      status.classList.remove('is-active');
     }, 2000);
   });
 
   socket.on('someone_stopped', data => {
     console.log('Received someone_stopped:', data);
     document.getElementById("speakingStatus").textContent = "Nobody is speaking";
+    document.getElementById("speakingStatus").classList.remove('is-active');
   });
 </script>
 {% endblock %}

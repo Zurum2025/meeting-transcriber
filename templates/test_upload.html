@@ -1,13 +1,19 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Test Audio Upload</title>
-</head>
-<body>
-  <h2>Upload Audio File for Transcription & Summarization</h2>
-  <form method="POST" enctype="multipart/form-data">
-    <input type="file" name="audio" accept="audio/*" required>
-    <button type="submit">Upload</button>
-  </form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Test Transcription — AI Transcriber{% endblock %}
+{% block content %}
+<div class="utility-shell">
+  <span class="eyebrow">Standalone test</span>
+  <h2>Upload audio for transcription &amp; summarization</h2>
+  <p>Use this to test the Whisper + summarization pipeline directly, without opening a full meeting room.</p>
+  <div class="card">
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <input type="file" name="audio" accept="audio/*" required class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

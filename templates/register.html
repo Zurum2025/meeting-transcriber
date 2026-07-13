@@ -1,25 +1,40 @@
 {% extends "base.html" %}
+{% block title %}Create account — AI Transcriber{% endblock %}
 {% block content %}
-<div class="form-container">
-  <h2 class="mb-4">Register</h2>
-  <form method="post">
-    <div class="mb-3">
-      <input name="firstname" type="text" class="form-control" placeholder="First Name" required>
+<div class="auth-shell">
+  <div class="auth-visual">
+    <div class="visual-waveform" aria-hidden="true">
+      <i style="height:40%"></i><i style="height:70%"></i><i style="height:50%"></i>
+      <i style="height:85%"></i><i style="height:35%"></i><i style="height:65%"></i>
+      <i style="height:55%"></i><i style="height:90%"></i><i style="height:45%"></i>
+      <i style="height:75%"></i><i style="height:30%"></i><i style="height:60%"></i>
+      <i style="height:50%"></i><i style="height:80%"></i>
     </div>
-    <div class="mb-3">
-      <input name="lastname" type="text" class="form-control" placeholder="Last Name" required>
+    <p class="quote">Join in <span>under a minute</span>. No note-taker required.</p>
+  </div>
+
+  <div class="auth-form-col">
+    <div class="form-container">
+      <h2>Create your account</h2>
+      <form method="post">
+        <div class="mb-3">
+          <input name="firstname" type="text" class="form-control" placeholder="First Name" required>
+        </div>
+        <div class="mb-3">
+          <input name="lastname" type="text" class="form-control" placeholder="Last Name" required>
+        </div>
+        <div class="mb-3">
+          <input name="email" type="email" class="form-control" placeholder="Email" required>
+        </div>
+        <div class="mb-3">
+          <input name="password" type="password" class="form-control" placeholder="Password" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Register</button>
+      </form>
+      <div class="text-center mt-3">
+        <small>Already have an account? <a href="{{ url_for('login') }}">Login</a></small>
+      </div>
     </div>
-    <div class="mb-3">
-      <input name="email" type="email" class="form-control" placeholder="Email" required>
-    </div>
-    <div class="mb-3">
-      <input name="password" type="password" class="form-control" placeholder="Password" required>
-    </div>
-    <button type="submit" class="btn btn-primary w-100">Register</button>
-  </form>
-  <div class="text-center mt-3">
-    <small>Already have an account? <a href="{{ url_for('login') }}">Login</a></small>
   </div>
 </div>
 {% endblock %}
-

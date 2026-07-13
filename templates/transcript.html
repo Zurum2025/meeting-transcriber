@@ -1,2 +1,9 @@
-<h2>Transcript for Meeting: {{ code }}</h2>
-<pre>{{ transcript }}</pre>
+{% extends "base.html" %}
+{% block title %}Transcript {{ code }} — AI Transcriber{% endblock %}
+{% block content %}
+<div class="utility-shell">
+  <span class="eyebrow">Transcript</span>
+  <h2>Meeting {{ code }}</h2>
+  <pre>{{ transcript }}</pre>
+</div>
+{% endblock %}

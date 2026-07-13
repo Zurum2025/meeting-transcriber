@@ -1,178 +1,208 @@
 {% extends "base.html" %}
+{% block title %}Admin Panel — AI Transcriber{% endblock %}
 {% block content %}
-<div class="container mt-4">
-  <h1 class="mb-4">Admin Panel</h1>
+<div class="container dashboard-wrap">
+  <div class="dashboard-head">
+    <span class="eyebrow">Admin</span>
+    <h2>Admin Panel</h2>
+    <p>Monitor users, meetings, and everything they've generated.</p>
+  </div>
+
   {% if error %}
-    <p class="text-danger">Error: {{ error }}</p>
+    <div class="alert alert-danger mb-4">Error: {{ error }}</div>
   {% endif %}
 
-  <h2>Users</h2>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Admin</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for user in users %}
-      <tr>
-        <td>{{ user.UserID }}</td>
-        <td>{{ user.Name }}</td>
-        <td>{{ user.Email }}</td>
-        <td>{{ 'Yes' if user.is_admin else 'No' }}</td>
-        <td>
-          {% if not user.is_admin %}
-          <form action="{{ url_for('delete_user', user_id=user.UserID) }}" method="POST">
-            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="5">No users found</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-block">
+    <h2>Users</h2>
+    <div class="card">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Admin</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td class="code-chip">{{ user.UserID }}</td>
+            <td class="fw-semibold">{{ user.Name }}</td>
+            <td>{{ user.Email }}</td>
+            <td>{{ 'Yes' if user.is_admin else 'No' }}</td>
+            <td>
+              {% if not user.is_admin %}
+              <form action="{{ url_for('delete_user', user_id=user.UserID) }}" method="POST">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-body-tertiary py-4">No users found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  <h2>Meetings</h2>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Meeting Code</th>
-        <th>Title</th>
-        <th>Date</th>
-        <th>Duration</th>
-        <th>Participants</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for meeting in meetings %}
-      <tr>
-        <td>{{ meeting.MeetingCode }}</td>
-        <td>{{ meeting.Title }}</td>
-        <td>{{ meeting.Date }}</td>
-        <td>{{ meeting.Duration if meeting.Duration else 'Not ended' }}</td>
-        <td>{{ participants[meeting.MeetingCode]|map(attribute='Name')|join(', ') if participants[meeting.MeetingCode] else 'None' }}</td>
-        <td>
-          <form action="{{ url_for('delete_meeting', meeting_id=meeting.MeetingCode) }}" method="POST">
-            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6">No meetings found</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-block">
+    <h2>Meetings</h2>
+    <div class="card">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Meeting Code</th>
+            <th>Title</th>
+            <th>Date</th>
+            <th>Duration</th>
+            <th>Participants</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for meeting in meetings %}
+          <tr>
+            <td><span class="code-chip">{{ meeting.MeetingCode }}</span></td>
+            <td class="fw-semibold">{{ meeting.Title }}</td>
+            <td>{{ meeting.Date }}</td>
+            <td>{{ meeting.Duration if meeting.Duration else 'Not ended' }}</td>
+            <td>{{ participants[meeting.MeetingCode]|map(attribute='Name')|join(', ') if participants[meeting.MeetingCode] else 'None' }}</td>
+            <td>
+              <form action="{{ url_for('delete_meeting', meeting_id=meeting.MeetingCode) }}" method="POST">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-body-tertiary py-4">No meetings found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  <h2>Audio Recordings</h2>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Audio ID</th>
-        <th>Meeting Code</th>
-        <th>Timestamp</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for recording in audio_recordings %}
-      <tr>
-        <td>{{ recording.AudioID }}</td>
-        <td>{{ recording.MeetingCode }}</td>
-        <td>{{ recording.Timestamp }}</td>
-        <td>
-          <form action="{{ url_for('delete_audio', audio_id=recording.AudioID) }}" method="POST">
-            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="4">No audio recordings found</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-block">
+    <h2>Audio Recordings</h2>
+    <div class="card">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Audio ID</th>
+            <th>Meeting Code</th>
+            <th>Timestamp</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for recording in audio_recordings %}
+          <tr>
+            <td class="code-chip">{{ recording.AudioID }}</td>
+            <td><span class="code-chip">{{ recording.MeetingCode }}</span></td>
+            <td>{{ recording.Timestamp }}</td>
+            <td>
+              <form action="{{ url_for('delete_audio', audio_id=recording.AudioID) }}" method="POST">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-body-tertiary py-4">No audio recordings found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  <h2>Transcripts</h2>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Transcript ID</th>
-        <th>Meeting Code</th>
-        <th>Audio ID</th>
-        <th>Raw Text (Preview)</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for transcript in transcripts %}
-      <tr>
-        <td>{{ transcript.TranscriptID }}</td>
-        <td>{{ transcript.MeetingCode }}</td>
-        <td>{{ transcript.AudioID }}</td>
-        <td>{{ transcript.RawText[:50] + '...' if transcript.RawText else 'N/A' }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="4">No transcripts found</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-block">
+    <h2>Transcripts</h2>
+    <div class="card">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Transcript ID</th>
+            <th>Meeting Code</th>
+            <th>Audio ID</th>
+            <th>Raw Text (Preview)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transcript in transcripts %}
+          <tr>
+            <td class="code-chip">{{ transcript.TranscriptID }}</td>
+            <td><span class="code-chip">{{ transcript.MeetingCode }}</span></td>
+            <td class="code-chip">{{ transcript.AudioID }}</td>
+            <td>{{ transcript.RawText[:50] + '...' if transcript.RawText else 'N/A' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-body-tertiary py-4">No transcripts found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  <h2>Minutes</h2>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Minute ID</th>
-        <th>Meeting Code</th>
-        <th>Transcript ID</th>
-        <th>Summary Text (Preview)</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for minute in minutes %}
-      <tr>
-        <td>{{ minute.MinuteID }}</td>
-        <td>{{ minute.MeetingCode }}</td>
-        <td>{{ minute.TranscriptID }}</td>
-        <td>{{ minute.SummaryText[:50] + '...' if minute.SummaryText else 'N/A' }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="4">No minutes found</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-block">
+    <h2>Minutes</h2>
+    <div class="card">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Minute ID</th>
+            <th>Meeting Code</th>
+            <th>Transcript ID</th>
+            <th>Summary Text (Preview)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for minute in minutes %}
+          <tr>
+            <td class="code-chip">{{ minute.MinuteID }}</td>
+            <td><span class="code-chip">{{ minute.MeetingCode }}</span></td>
+            <td class="code-chip">{{ minute.TranscriptID }}</td>
+            <td>{{ minute.SummaryText[:50] + '...' if minute.SummaryText else 'N/A' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-body-tertiary py-4">No minutes found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  <h2>Participants</h2>
-  {% for meeting_code, meeting_participants in participants.items() %}
-  <h3>Meeting {{ meeting_code }}</h3>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>User ID</th>
-        <th>Name</th>
-        <th>Role</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for participant in meeting_participants %}
-      <tr>
-        <td>{{ participant.UserID }}</td>
-        <td>{{ participant.Name }}</td>
-        <td>{{ participant.Role }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="3">No participants for Meeting {{ meeting_code }}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>No participants found</p>
-  {% endfor %}
+  <div class="section-block">
+    <h2>Participants</h2>
+    {% for meeting_code, meeting_participants in participants.items() %}
+    <h3 class="mb-2">Meeting <span class="code-chip">{{ meeting_code }}</span></h3>
+    <div class="card mb-4">
+      <table class="table table-striped mb-0">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Name</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for participant in meeting_participants %}
+          <tr>
+            <td class="code-chip">{{ participant.UserID }}</td>
+            <td class="fw-semibold">{{ participant.Name }}</td>
+            <td>{{ participant.Role }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-center text-body-tertiary py-4">No participants for this meeting</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p>No participants found</p>
+    {% endfor %}
+  </div>
 
-  <a href="{{ url_for('logout') }}" class="btn btn-secondary mt-4">Logout</a>
+  <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
 </div>
 {% endblock %}

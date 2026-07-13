@@ -1,22 +1,58 @@
 {% extends "base.html" %}
+{% block title %}AI Transcriber — Meeting minutes, written for you{% endblock %}
 {% block content %}
-<div class="container text-center mt-5">
-  <h1 class="display-4">Create and Summarize Your Meetings Fast</h1>
-  <p class="lead">Create, summarize, and store your meetings. Get your minutes in real-time.</p>
-  <a href="{{ url_for('start_meeting') if current_user.is_authenticated else url_for('login') }}" class="btn btn-dark btn-lg rounded-pill mt-3">Start Now</a>
+<div class="container">
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="hero-eyebrow">Record → Transcribe → Minutes</span>
+      <h1>Say it in the meeting.<br>Read it in the minutes.</h1>
+      <p class="lead">Start a room, talk like you normally would, and walk away with a clean transcript and structured minutes — no one has to take notes again.</p>
+      <div class="hero-cta-row">
+        <a href="{{ url_for('start_meeting') if current_user.is_authenticated else url_for('login') }}" class="btn btn-primary btn-lg rounded-pill">
+          {{ 'Go to your meetings' if current_user.is_authenticated else 'Start Now' }}
+        </a>
+        {% if not current_user.is_authenticated %}
+        <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg rounded-pill">Create an account</a>
+        {% endif %}
+      </div>
+      <p class="hero-note">No credit card. No downloads. Just a meeting code.</p>
+    </div>
+
+    <div class="hero-illustration">
+      <div class="hero-waveform" aria-hidden="true">
+        <i style="height:35%"></i><i style="height:70%"></i><i style="height:45%"></i>
+        <i style="height:90%"></i><i style="height:55%"></i><i style="height:80%"></i>
+        <i style="height:30%"></i><i style="height:65%"></i><i style="height:50%"></i>
+        <i style="height:85%"></i><i style="height:40%"></i><i style="height:60%"></i>
+      </div>
+      <div class="hero-lines" aria-hidden="true">
+        <span class="line w-90"></span>
+        <span class="line w-70"></span>
+        <span class="line w-80"></span>
+        <span class="line w-50"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="how-it-works">
+    <h2>What actually happens</h2>
+    <div class="how-grid">
+      <div class="how-step">
+        <span class="step-index">01 — Record</span>
+        <h3>Open a room, hit start</h3>
+        <p>Everyone joins with a meeting code. Audio is captured for the length of the call, with a live speaking indicator so you always know who has the floor.</p>
+      </div>
+      <div class="how-step">
+        <span class="step-index">02 — Transcribe</span>
+        <h3>Whisper listens</h3>
+        <p>The moment the meeting ends, the recording is run through speech-to-text automatically — no manual upload step required.</p>
+      </div>
+      <div class="how-step">
+        <span class="step-index">03 — Summarize</span>
+        <h3>Minutes, structured</h3>
+        <p>The transcript is condensed into a dated summary with action points called out, ready to download as a PDF.</p>
+      </div>
+    </div>
+  </section>
 </div>
 {% endblock %}
-
-<style>
-*{
-  text-align:center;
-}
-a{
-  text-decoration:none;
-  padding:1.125rem 1.7rem;
-  border-radius:999px;
-  color:#fff;
-  background:#1c1c1c;
-  border:none;
-}
-</style>
