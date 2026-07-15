@@ -251,8 +251,9 @@ def handle_speaking(data):
     try:
         room = str(data.get('code'))
         name = data.get('name') or (current_user.Name if current_user.is_authenticated else 'Guest')
+        user_id = current_user.UserID if current_user.is_authenticated else data.get('user_id')
         print(f"Received speaking event: {name} in room {room}")  # Debug
-        emit('someone_speaking', {'name': name, 'status': 'is speaking'}, to=room, include_self=True)
+        emit('someone_speaking', {'name': name, 'user_id': user_id, 'status': 'is speaking'}, to=room, include_self=True)
     except Exception as e:
         print(f"Error in handle_speaking: {e}")
 
@@ -261,10 +262,22 @@ def handle_stopped_speaking(data):
     try:
         room = str(data.get('code'))
         name = data.get('name') or (current_user.Name if current_user.is_authenticated else 'Guest')
+        user_id = current_user.UserID if current_user.is_authenticated else data.get('user_id')
         print(f"Received stopped_speaking event: {name} in room {room}")  # Debug
-        emit('someone_stopped', {'name': name, 'status': 'stopped speaking'}, to=room, include_self=True)
+        emit('someone_stopped', {'name': name, 'user_id': user_id, 'status': 'stopped speaking'}, to=room, include_self=True)
     except Exception as e:
         print(f"Error in handle_stopped_speaking: {e}")
+
+@socketio.on('mic_status')
+def handle_mic_status(data):
+    try:
+        room = str(data.get('code'))
+        user_id = current_user.UserID if current_user.is_authenticated else data.get('user_id')
+        muted = bool(data.get('muted'))
+        print(f"Mic status update: user {user_id} muted={muted} in room {room}")  # Debug
+        emit('mic_status_update', {'user_id': user_id, 'muted': muted}, to=room, include_self=True)
+    except Exception as e:
+        print(f"Error in handle_mic_status: {e}")
 
 @socketio.on('disconnect')
 def handle_disconnect():

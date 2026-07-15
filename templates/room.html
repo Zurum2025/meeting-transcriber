@@ -1,56 +1,76 @@
 {% extends "base.html" %}
 {% block title %}Meeting {{ meeting.MeetingCode }} — AI Transcriber{% endblock %}
 {% block content %}
-<div class="container room-wrap">
+<div class="room-shell">
 
   <div class="room-topbar">
     <div class="room-code-chip">
       Meeting code <strong>{{ meeting.MeetingCode }}</strong>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <div class="badge bg-dark text-white p-2 fs-6" id="meetingTimer">Duration: 00:00:00</div>
+    <div class="room-topbar-right">
+      <div class="live-indicator" id="liveIndicator" aria-hidden="true">
+        <span class="live-dot"></span>
+        <span class="live-waveform-mini"><i></i><i></i><i></i><i></i></span>
+        <span>REC</span>
+      </div>
+      <div id="meetingTimer" class="room-timer">00:00:00</div>
     </div>
   </div>
 
-  <div class="room-grid">
+  <p id="speakingStatus" class="speaking-banner">Nobody is speaking</p>
 
-    <!-- Participants panel -->
-    <div class="card panel">
-      <div class="panel-title">
-        <h4>Participants</h4>
-      </div>
-      <ul id="participantsList" class="list-group mb-3"></ul>
-      <p id="speakingStatus" class="text-success fw-semibold">Nobody is speaking</p>
-    </div>
-
-    <!-- Controls panel -->
-    <div class="card panel">
-      <div class="panel-title">
-        <h4>Controls</h4>
-      </div>
-
-      <div class="live-waveform" aria-hidden="true">
-        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-      </div>
-
-      <div class="control-row">
-        <button id="micToggle" class="btn btn-outline-primary">🎤 Mic On</button>
-        <div id="micStatus" class="align-self-center">Mic OFF</div>
-      </div>
-
-      <div class="control-row">
-        {% if is_chairman %}
-        <button id="meetingControlBtn" class="btn btn-danger">🔴 Start Meeting</button>
-        {% else %}
-        <button id="exitBtn" class="btn btn-secondary">Exit</button>
-        {% endif %}
-        <div id="recordingStatus" class="align-self-center">The meeting has not started yet.</div>
-      </div>
-
-      <p id="endMessage" class="text-danger fw-bold" style="display:none;">The meeting has ended</p>
-    </div>
-
+  <div class="stage">
+    <div class="stage-grid" id="participantsGrid"></div>
   </div>
+
+  <p id="recordingStatus" class="status-line">The meeting has not started yet.</p>
+  <p id="endMessage" class="status-line" style="display:none;">The meeting has ended</p>
+
+  <!-- Collapsible corner participants panel -->
+  <div class="people-panel is-collapsed" id="peoplePanel">
+    <button class="people-panel-toggle" id="peoplePanelToggle" type="button" aria-expanded="false">
+      <span class="people-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="6" r="4"/><path d="M23 20v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      <span>Participants</span>
+      <span class="people-count" id="peopleCount">0</span>
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="people-panel-body">
+      <ul id="participantsList" class="people-list"></ul>
+    </div>
+  </div>
+
+  <!-- Bottom floating control bar -->
+  <div class="control-bar">
+    <button id="micToggle" class="control-btn" type="button" aria-pressed="false" title="Toggle microphone">
+      <span class="control-icon">
+        <span class="icon-mic-on"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg></span>
+        <span class="icon-mic-off"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 4.6 2.55"/><path d="M15 9.34V6a3 3 0 0 0-5.94-.6"/><path d="M19 11a7 7 0 0 1-9.8 6.4"/><path d="M5 11a7 7 0 0 0 1.5 4.3"/><line x1="12" y1="18" x2="12" y2="22"/></svg></span>
+      </span>
+      <span class="control-label">Mute</span>
+    </button>
+
+    {% if is_chairman %}
+    <button id="meetingControlBtn" class="control-btn control-btn-danger" type="button">
+      <span class="control-icon"><span class="rec-dot"></span></span>
+      <span class="control-label">Start Meeting</span>
+    </button>
+    {% else %}
+    <button id="exitBtn" class="control-btn control-btn-muted" type="button">
+      <span class="control-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+      <span class="control-label">Leave</span>
+    </button>
+    {% endif %}
+
+    <button class="control-btn" id="peopleShortcut" type="button">
+      <span class="control-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="6" r="4"/><path d="M23 20v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      <span class="control-label">People</span>
+    </button>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -65,8 +85,9 @@
   const socket = io();
   const code = {{ meeting.MeetingCode | tojson | safe }};
   const name = {{ current_user.Name | tojson | safe }};
-  const userId = {{ current_user.UserID | tojson | safe }};
+  const userId = String({{ current_user.UserID | tojson | safe }});
   const isChairman = {{ is_chairman | tojson | safe }};
+
   let localStream = null;
   let recorder = null;
   let chunks = [];
@@ -74,51 +95,199 @@
   let timerInterval = null;
   let meetingSeconds = 0;
   let speakingTimeout = null;
+  let micMuted = false;
 
-  // Debug Socket.IO connection
+  const micStateById = {};   // userId -> muted (bool)
+  const speakingIds = new Set();
+
+  const AVATAR_COLOR_COUNT = 6;
+  const MIC_ON_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>';
+  const MIC_OFF_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 4.6 2.55"/><path d="M15 9.34V6a3 3 0 0 0-5.94-.6"/><path d="M19 11a7 7 0 0 1-9.8 6.4"/><path d="M5 11a7 7 0 0 0 1.5 4.3"/><line x1="12" y1="18" x2="12" y2="22"/></svg>';
+  const MIC_ICON_PAIR = `<span class="icon-mic-on">${MIC_ON_SVG}</span><span class="icon-mic-off">${MIC_OFF_SVG}</span>`;
+
+  function initials(n) {
+    if (!n) return '?';
+    const parts = n.trim().split(/\s+/);
+    const first = parts[0] ? parts[0][0] : '';
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (first + last).toUpperCase();
+  }
+
+  function colorIndex(id) {
+    let hash = 0;
+    const s = String(id);
+    for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+    return hash % AVATAR_COLOR_COUNT;
+  }
+
+  function renderParticipants(users) {
+    const grid = document.getElementById('participantsGrid');
+    const list = document.getElementById('participantsList');
+    const count = document.getElementById('peopleCount');
+
+    const ids = Object.keys(users);
+    count.textContent = ids.length;
+
+    // Drop tiles/rows for people who left
+    grid.querySelectorAll('[data-user-id]').forEach(el => {
+      if (!ids.includes(el.dataset.userId)) el.remove();
+    });
+    list.querySelectorAll('[data-user-id]').forEach(el => {
+      if (!ids.includes(el.dataset.userId)) el.remove();
+    });
+
+    ids.forEach(id => {
+      const uName = users[id];
+      const isSelf = id === userId;
+
+      // --- Video-call tile ---
+      let tile = grid.querySelector(`[data-user-id="${id}"]`);
+      if (!tile) {
+        tile = document.createElement('div');
+        tile.className = 'tile' + (isSelf ? ' is-self' : '');
+        tile.dataset.userId = id;
+        tile.innerHTML = `
+          <div class="tile-inner">
+            <div class="avatar avatar-c${colorIndex(id)}">${initials(uName)}</div>
+            <span class="mic-badge">${MIC_ICON_PAIR}</span>
+            <div class="tile-meta">
+              <span class="tile-wave" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="tile-name">${escapeHtml(uName)}${isSelf ? ' <em>(You)</em>' : ''}</span>
+            </div>
+            ${isSelf ? `<button type="button" class="tile-mic-btn" id="tileMicBtn" aria-label="Toggle your microphone">${MIC_ICON_PAIR}</button>` : ''}
+          </div>`;
+        grid.appendChild(tile);
+        if (isSelf) {
+          document.getElementById('tileMicBtn').addEventListener('click', toggleMic);
+        }
+      } else {
+        const nameEl = tile.querySelector('.tile-name');
+        if (nameEl) nameEl.innerHTML = `${escapeHtml(uName)}${isSelf ? ' <em>(You)</em>' : ''}`;
+      }
+      tile.classList.toggle('is-muted', !!micStateById[id]);
+      tile.classList.toggle('is-speaking', speakingIds.has(id));
+
+      // --- Corner panel row ---
+      let row = list.querySelector(`[data-user-id="${id}"]`);
+      if (!row) {
+        row = document.createElement('li');
+        row.className = 'people-row';
+        row.dataset.userId = id;
+        row.innerHTML = `
+          <span class="people-row-avatar avatar-c${colorIndex(id)}">${initials(uName)}</span>
+          <span class="people-row-name">${escapeHtml(uName)}${isSelf ? ' (You)' : ''}</span>
+          <span class="people-row-mic">${MIC_ICON_PAIR}</span>`;
+        list.appendChild(row);
+      }
+      row.classList.toggle('is-muted', !!micStateById[id]);
+    });
+
+    // Re-announce our own mic state so newcomers render the right icon
+    if (localStream) {
+      socket.emit('mic_status', { code: code, user_id: userId, muted: micMuted });
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : str;
+    return div.innerHTML;
+  }
+
+  function setSpeaking(id, isSpeaking) {
+    if (!id) return;
+    id = String(id);
+    if (isSpeaking) speakingIds.add(id); else speakingIds.delete(id);
+    const tile = document.querySelector(`.tile[data-user-id="${id}"]`);
+    if (tile) tile.classList.toggle('is-speaking', isSpeaking);
+  }
+
+  function setMicState(id, muted) {
+    if (!id) return;
+    id = String(id);
+    micStateById[id] = muted;
+    const tile = document.querySelector(`.tile[data-user-id="${id}"]`);
+    if (tile) tile.classList.toggle('is-muted', muted);
+    const row = document.querySelector(`.people-row[data-user-id="${id}"]`);
+    if (row) row.classList.toggle('is-muted', muted);
+  }
+
+  function toggleMic() {
+    if (!localStream) return;
+    const track = localStream.getAudioTracks()[0];
+    track.enabled = !track.enabled;
+    micMuted = !track.enabled;
+
+    const micBtn = document.getElementById('micToggle');
+    micBtn.classList.toggle('is-muted', micMuted);
+    micBtn.setAttribute('aria-pressed', String(micMuted));
+    micBtn.querySelector('.control-label').textContent = micMuted ? 'Unmute' : 'Mute';
+
+    setMicState(userId, micMuted);
+    socket.emit('mic_status', { code: code, user_id: userId, muted: micMuted });
+  }
+
+  // --- Socket wiring ---
   socket.on('connect', () => {
     console.log('Connected to Socket.IO server, isChairman:', isChairman);
     socket.emit('join', { code: code, name: name, user_id: userId });
   });
-  socket.on('connect_error', (error) => {
-    console.error('Socket.IO connection error:', error);
+  socket.on('connect_error', (error) => console.error('Socket.IO connection error:', error));
+
+  socket.on('participants', users => {
+    console.log('Received participants:', users);
+    renderParticipants(users);
   });
 
-  // Update participants
-  socket.on("participants", users => {
-    console.log('Received participants:', users);
-    const list = document.getElementById("participantsList");
-    list.innerHTML = "";
-    for (const [id, user] of Object.entries(users)) {
-      const li = document.createElement("li");
-      li.className = "list-group-item";
-      li.textContent = user;
-      li.dataset.initial = (user || '?').trim().charAt(0).toUpperCase();
-      list.appendChild(li);
+  socket.on('someone_speaking', data => {
+    const status = document.getElementById('speakingStatus');
+    status.textContent = data.name ? `${data.name} is speaking` : 'Someone is speaking';
+    status.classList.add('is-active');
+    setSpeaking(data.user_id, true);
+    if (speakingTimeout) clearTimeout(speakingTimeout);
+    speakingTimeout = setTimeout(() => {
+      status.textContent = 'Nobody is speaking';
+      status.classList.remove('is-active');
+    }, 2000);
+  });
+
+  socket.on('someone_stopped', data => {
+    document.getElementById('speakingStatus').textContent = 'Nobody is speaking';
+    document.getElementById('speakingStatus').classList.remove('is-active');
+    setSpeaking(data.user_id, false);
+  });
+
+  socket.on('mic_status_update', data => {
+    if (data && data.user_id !== undefined && data.user_id !== null) {
+      setMicState(data.user_id, !!data.muted);
     }
   });
 
-  // Initialize media stream
+  // --- Collapsible corner panel ---
+  const peoplePanel = document.getElementById('peoplePanel');
+  const peoplePanelToggle = document.getElementById('peoplePanelToggle');
+  peoplePanelToggle.addEventListener('click', () => {
+    const collapsed = peoplePanel.classList.toggle('is-collapsed');
+    peoplePanelToggle.setAttribute('aria-expanded', String(!collapsed));
+  });
+  document.getElementById('peopleShortcut').addEventListener('click', () => {
+    peoplePanel.classList.remove('is-collapsed');
+    peoplePanelToggle.setAttribute('aria-expanded', 'true');
+  });
+
+  // --- Microphone init ---
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     console.log('Microphone access granted');
     localStream = stream;
-    document.getElementById('micStatus').textContent = 'Mic ON';
-
-    // Mic toggle
-    document.getElementById('micToggle').addEventListener('click', () => {
-      const track = stream.getAudioTracks()[0];
-      track.enabled = !track.enabled;
-      document.getElementById('micToggle').textContent = track.enabled ? '🎤 Mic On' : '🔇 Mic Off';
-      document.getElementById('micStatus').textContent = track.enabled ? 'Mic ON' : 'Mic OFF';
-    });
-
+    document.getElementById('micToggle').addEventListener('click', toggleMic);
     monitorSpeaking(stream);
+    socket.emit('mic_status', { code: code, user_id: userId, muted: false });
   }).catch(error => {
     console.error('Error accessing microphone:', error);
-    document.getElementById('micStatus').textContent = 'Mic access denied';
+    document.getElementById('recordingStatus').textContent = 'Microphone access denied — you can stay in the room, but others won\u2019t hear you.';
     if (isChairman) {
-      document.getElementById('meetingControlBtn').disabled = true;
-      document.getElementById('recordingStatus').textContent = 'Cannot start meeting: Microphone access denied';
+      const btn = document.getElementById('meetingControlBtn');
+      if (btn) btn.disabled = true;
     }
   });
 
@@ -134,18 +303,19 @@
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
       meetingSeconds++;
-      document.getElementById("meetingTimer").textContent = "Duration: " + formatTime(meetingSeconds);
+      document.getElementById('meetingTimer').textContent = formatTime(meetingSeconds);
     }, 1000);
   }
 
   function stopTimer() {
     if (timerInterval) clearInterval(timerInterval);
-    document.getElementById("meetingTimer").textContent = "Duration: " + formatTime(meetingSeconds);
+    document.getElementById('meetingTimer').textContent = formatTime(meetingSeconds);
   }
 
   if (isChairman) {
     function handleMeetingControl() {
-      const btn = document.getElementById("meetingControlBtn");
+      const btn = document.getElementById('meetingControlBtn');
+      const label = btn.querySelector('.control-label');
       if (!isMeetingStarted) {
         if (!localStream) {
           console.error('Cannot start meeting: localStream is not initialized');
@@ -157,9 +327,7 @@
           document.body.classList.add('is-live');
           chunks = [];
           recorder = new MediaRecorder(localStream);
-          console.log('MediaRecorder initialized:', recorder);
           recorder.ondataavailable = e => {
-            console.log('Data available:', e.data);
             chunks.push(e.data);
           };
           recorder.onstop = async () => {
@@ -172,12 +340,7 @@
                 method: "POST",
                 body: formData
               });
-              if (response.ok) {
-                document.getElementById("recordingStatus").textContent = "Recording uploaded ✅";
-              } else {
-                console.error('Upload failed:', response.statusText);
-                document.getElementById('recordingStatus').textContent = "Upload failed";
-              }
+              document.getElementById("recordingStatus").textContent = response.ok ? "Recording uploaded ✅" : "Upload failed";
               socket.emit('meeting_ended', { code: code });
             } catch (error) {
               console.error('Upload error:', error);
@@ -186,8 +349,9 @@
           };
           recorder.start();
           console.log('Recording started');
-          btn.textContent = "End Meeting";
-          document.getElementById("recordingStatus").textContent = "Meeting Recording in progress... 🎙️";
+          if (label) label.textContent = 'End Meeting';
+          btn.classList.add('is-live');
+          document.getElementById("recordingStatus").textContent = "Meeting recording in progress…";
           startTimer();
           socket.emit('meeting_started', { code: code, seconds: meetingSeconds });
         } catch (error) {
@@ -195,7 +359,7 @@
           document.getElementById('recordingStatus').textContent = 'Failed to start recording';
           isMeetingStarted = false;
           document.body.classList.remove('is-live');
-          btn.textContent = "Start Meeting";
+          if (label) label.textContent = 'Start Meeting';
         }
       } else {
         if (!recorder) {
@@ -208,9 +372,10 @@
           console.log('Recording stop requested');
           stopTimer();
           document.body.classList.remove('is-live');
-          btn.textContent = "Leave Meeting Room";
+          if (label) label.textContent = 'Leave Room';
+          btn.classList.remove('is-live');
           btn.onclick = () => window.location.href = "{{ url_for('start_meeting') }}";
-          document.getElementById("recordingStatus").textContent = "Recording Stopped";
+          document.getElementById("recordingStatus").textContent = "Recording stopped";
           document.getElementById("endMessage").style.display = "block";
           isMeetingStarted = false;
         } catch (error) {
@@ -231,7 +396,7 @@
     console.log('Received meeting_started:', data);
     isMeetingStarted = true;
     document.body.classList.add('is-live');
-    document.getElementById("recordingStatus").textContent = "Meeting Recording in progress... 🎙️";
+    document.getElementById("recordingStatus").textContent = "Meeting recording in progress…";
     document.getElementById("endMessage").style.display = "none";
     startTimer(data.seconds || 0);
   });
@@ -241,14 +406,15 @@
     isMeetingStarted = false;
     document.body.classList.remove('is-live');
     stopTimer();
-    document.getElementById("recordingStatus").textContent = "Recording Stopped";
+    document.getElementById("recordingStatus").textContent = "Recording stopped";
     document.getElementById("endMessage").style.display = "block";
     if (!isChairman) {
-      document.getElementById("exitBtn").textContent = "Leave Meeting Room";
+      const exitBtn = document.getElementById("exitBtn");
+      if (exitBtn) exitBtn.querySelector('.control-label').textContent = 'Leave Room';
     }
   });
 
-  // Monitor speaking
+  // Monitor speaking via local volume analysis
   function monitorSpeaking(stream) {
     const ctx = new AudioContext();
     const mic = ctx.createMediaStreamSource(stream);
@@ -267,35 +433,17 @@
         sum += deviation * deviation;
       }
       const volume = Math.sqrt(sum / dataArray.length);
-      if (volume > threshold && !isSpeaking) {
+      const speakingNow = volume > threshold && !micMuted;
+      if (speakingNow && !isSpeaking) {
         isSpeaking = true;
-        socket.emit('speaking', { code: code, name: name });
-      } else if (volume <= threshold && isSpeaking) {
+        socket.emit('speaking', { code: code, name: name, user_id: userId });
+      } else if (!speakingNow && isSpeaking) {
         isSpeaking = false;
-        socket.emit('stopped_speaking', { code: code, name: name });
+        socket.emit('stopped_speaking', { code: code, name: name, user_id: userId });
       }
       requestAnimationFrame(detect);
     }
     detect();
   }
-
-  // Show speaking status
-  socket.on('someone_speaking', data => {
-    console.log('Received someone_speaking:', data);
-    const status = document.getElementById("speakingStatus");
-    status.textContent = data.name ? `${data.name} is speaking 🎤` : 'Someone is speaking';
-    status.classList.add('is-active');
-    if (speakingTimeout) clearTimeout(speakingTimeout);
-    speakingTimeout = setTimeout(() => {
-      status.textContent = "Nobody is speaking";
-      status.classList.remove('is-active');
-    }, 2000);
-  });
-
-  socket.on('someone_stopped', data => {
-    console.log('Received someone_stopped:', data);
-    document.getElementById("speakingStatus").textContent = "Nobody is speaking";
-    document.getElementById("speakingStatus").classList.remove('is-active');
-  });
 </script>
 {% endblock %}

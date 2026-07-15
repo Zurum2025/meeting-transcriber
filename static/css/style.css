@@ -27,6 +27,16 @@
   
     --amber: #C68A2E;       /* warning accent, used sparingly */
     --amber-tint: #F5EBD8;
+
+    /* Extra avatar / identity tones — same family as the core
+       palette (muted, paper-adjacent), used only to tell people
+       apart at a glance in the meeting room roster. */
+    --slate: #3F5C6C;
+    --slate-tint: #E4EAEE;
+    --clay: #A65A3C;
+    --clay-tint: #F3E4DB;
+    --moss: #5B7A3A;
+    --moss-tint: #E9EEDD;
   
     --radius-sm: 8px;
     --radius-md: 14px;
@@ -424,17 +434,30 @@
   .how-step p { font-size: 0.92rem; }
   
   /* ============================================================
-     MEETING ROOM (room.html)
+     MEETING ROOM (room.html) — Zoom/Meet-style call layout
+     Every participant is their own tile (ready to host a real
+     video feed later); a corner roster and a floating control
+     bar sit on top. Speaking uses the same waveform-bars motif
+     as the rest of the product, just shrunk onto each tile.
      ============================================================ */
-  .room-wrap { padding: 2.25rem 0 4rem; }
+  .room-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 70px);
+    padding: 1.25rem 1.5rem 6.5rem;
+    gap: 0.85rem;
+    position: relative;
+  }
+
   .room-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.75rem;
+    gap: 0.75rem;
   }
+  .room-topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+
   .room-code-chip {
     display: inline-flex;
     align-items: center;
@@ -444,117 +467,348 @@
     border: 1px solid var(--line);
     border-radius: 999px;
     padding: 0.5rem 1.1rem;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--ink-soft);
+    transition: border-color 0.2s ease, color 0.2s ease;
   }
   .room-code-chip strong { color: var(--ink); letter-spacing: 0.04em; }
-  
-  .room-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.3fr;
-    gap: 1.5rem;
-    align-items: start;
-  }
-  @media (max-width: 900px) { .room-grid { grid-template-columns: 1fr; } }
-  
-  .panel { padding: 1.6rem; }
-  .panel-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-  }
-  .panel-title h4 { margin: 0; font-family: var(--font-display); font-size: 1.1rem; }
-  
-  #participantsList { border: none; }
-  #participantsList .list-group-item {
-    border: none;
-    border-bottom: 1px solid var(--line-soft);
-    background: transparent;
-    padding: 0.7rem 0.2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    font-weight: 500;
-    color: var(--ink);
-  }
-  #participantsList .list-group-item::before {
-    content: attr(data-initial);
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    background: var(--pine-tint);
-    color: var(--pine-deep);
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  #participantsList:empty::after {
-    content: "Waiting for others to join…";
-    color: var(--ink-faint);
-    font-size: 0.9rem;
-  }
-  
-  #speakingStatus {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--ink-faint) !important;
-    background: var(--surface-alt);
-    border-radius: var(--radius-sm);
-    padding: 0.55rem 0.8rem;
-    margin: 0;
-  }
-  #speakingStatus.is-active { color: var(--pine-deep) !important; background: var(--pine-tint); }
-  
-  .control-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
-  #micToggle { border-radius: 999px; }
-  #micStatus, #recordingStatus {
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-    align-self: center;
-  }
-  #meetingTimer {
+  body.is-live .room-code-chip { border-color: var(--brick); color: var(--brick-deep); }
+
+  .room-timer {
     font-family: var(--font-mono);
     background: var(--ink);
     color: #fff;
     border-radius: 999px;
     padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    letter-spacing: 0.03em;
-  }
-  #endMessage {
-    font-family: var(--font-mono);
-    color: var(--brick) !important;
     font-size: 0.85rem;
-    font-weight: 600;
+    letter-spacing: 0.03em;
+    transition: background 0.2s ease;
   }
-  
-  .live-waveform { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin: 0.25rem 0 1.25rem; }
-  .live-waveform i {
-    width: 3px;
-    border-radius: 2px;
-    background: var(--line);
-    height: 20%;
-    transition: background 0.3s ease;
+  body.is-live .room-timer { background: var(--brick); }
+
+  .live-indicator {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--brick-deep);
+    background: var(--brick-tint);
+    border-radius: 999px;
+    padding: 0.4rem 0.8rem;
   }
-  body.is-live .live-waveform i {
+  body.is-live .live-indicator { display: inline-flex; }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
     background: var(--brick);
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .live-waveform-mini { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .live-waveform-mini i {
+    width: 2px; border-radius: 1px; background: var(--brick);
+    height: 40%;
     animation: wave 1s ease-in-out infinite;
   }
-  body.is-live .live-waveform i:nth-child(1) { animation-delay: -0.9s; }
-  body.is-live .live-waveform i:nth-child(2) { animation-delay: -0.7s; }
-  body.is-live .live-waveform i:nth-child(3) { animation-delay: -0.5s; }
-  body.is-live .live-waveform i:nth-child(4) { animation-delay: -0.3s; }
-  body.is-live .live-waveform i:nth-child(5) { animation-delay: -0.1s; }
-  body.is-live .live-waveform i:nth-child(6) { animation-delay: -0.4s; }
-  body.is-live .live-waveform i:nth-child(7) { animation-delay: -0.6s; }
-  body.is-live .live-waveform i:nth-child(8) { animation-delay: -0.8s; }
-  
-  body.is-live #meetingTimer { background: var(--brick); }
-  body.is-live .room-code-chip { border-color: var(--brick); }
-  
-  #meetingControlBtn { border-radius: 999px; }
+  .live-waveform-mini i:nth-child(2) { animation-delay: -0.6s; }
+  .live-waveform-mini i:nth-child(3) { animation-delay: -0.3s; }
+  .live-waveform-mini i:nth-child(4) { animation-delay: -0.9s; }
+
+  .speaking-banner {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    margin: 0;
+    transition: color 0.2s ease;
+  }
+  .speaking-banner.is-active { color: var(--pine-deep); }
+
+  /* ---- Stage: responsive tile grid ---- */
+  .stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    overflow-y: auto;
+    padding: 0.35rem 0;
+  }
+  .stage-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 1rem;
+  }
+  .stage-grid:empty::after {
+    content: "Setting up your camera and mic…";
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+
+  .tile {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .tile.is-self { background: var(--pine-tint); border-color: var(--pine); }
+  .tile.is-speaking { border-color: var(--pine); box-shadow: 0 0 0 3px var(--pine-tint), var(--shadow-md); }
+
+  .tile-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .avatar {
+    width: 34%;
+    aspect-ratio: 1 / 1;
+    min-width: 42px;
+    max-width: 92px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(0.85rem, 3.2vw, 1.7rem);
+  }
+
+  .avatar-c0 { background: var(--pine-tint); color: var(--pine-deep); }
+  .avatar-c1 { background: var(--brick-tint); color: var(--brick-deep); }
+  .avatar-c2 { background: var(--amber-tint); color: #8A621F; }
+  .avatar-c3 { background: var(--slate-tint); color: var(--slate); }
+  .avatar-c4 { background: var(--clay-tint); color: var(--clay); }
+  .avatar-c5 { background: var(--moss-tint); color: var(--moss); }
+
+  .mic-badge {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(18, 24, 26, 0.06);
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tile.is-muted .mic-badge { background: var(--brick-tint); color: var(--brick); }
+
+  .tile-meta {
+    position: absolute;
+    left: 0.55rem; bottom: 0.55rem; right: 0.55rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .tile-name {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .tile-name em { font-style: normal; color: var(--pine-deep); }
+
+  .tile-wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; flex-shrink: 0; }
+  .tile-wave i {
+    width: 2px; border-radius: 1px; background: var(--pine);
+    height: 30%;
+    animation: wave 1s ease-in-out infinite;
+    animation-play-state: paused;
+    opacity: 0.35;
+    transition: opacity 0.15s ease;
+  }
+  .tile.is-speaking .tile-wave i { animation-play-state: running; opacity: 1; }
+  .tile-wave i:nth-child(2) { animation-delay: -0.6s; }
+  .tile-wave i:nth-child(3) { animation-delay: -0.3s; }
+
+  .tile-mic-btn {
+    position: absolute;
+    bottom: 0.55rem;
+    right: 0.55rem;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .tile-mic-btn:hover { background: var(--surface-alt); }
+  .tile.is-muted .tile-mic-btn { background: var(--brick); border-color: var(--brick); color: #fff; }
+
+  /* Mic icon swap — applies wherever an .is-muted ancestor wraps the pair */
+  .icon-mic-on, .icon-mic-off { display: inline-flex; }
+  .icon-mic-off { display: none; }
+  .is-muted .icon-mic-on { display: none; }
+  .is-muted .icon-mic-off { display: inline-flex; }
+
+  /* ---- Collapsible corner participants panel ---- */
+  .people-panel {
+    position: fixed;
+    top: 88px;
+    right: 1.5rem;
+    width: 250px;
+    max-width: calc(100vw - 2rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 30;
+    overflow: hidden;
+  }
+  .people-panel-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface-alt);
+    border: none;
+    padding: 0.7rem 0.9rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .people-panel-toggle .people-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    background: var(--pine-tint);
+    color: var(--pine-deep);
+    border-radius: 999px;
+    padding: 0.05rem 0.55rem;
+    font-size: 0.72rem;
+  }
+  .people-panel-toggle .chev { transition: transform 0.2s ease; color: var(--ink-faint); }
+  .people-panel.is-collapsed .chev { transform: rotate(-90deg); }
+  .people-panel.is-collapsed .people-panel-body { display: none; }
+
+  .people-panel-body { max-height: 320px; overflow-y: auto; }
+  .people-list { list-style: none; margin: 0; padding: 0.4rem; }
+  .people-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+  }
+  .people-row:hover { background: var(--surface-alt); }
+  .people-row-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-family: var(--font-display);
+    flex-shrink: 0;
+  }
+  .people-row-name {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .people-row-mic { color: var(--ink-faint); display: flex; }
+  .people-row.is-muted .people-row-mic { color: var(--brick); }
+  .people-list:empty::after {
+    content: "Waiting for others to join…";
+    display: block;
+    padding: 0.75rem 0.5rem;
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+  }
+
+  /* ---- Floating bottom control bar ---- */
+  .control-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.5rem;
+    box-shadow: var(--shadow-lg);
+    z-index: 30;
+    max-width: calc(100vw - 2rem);
+  }
+  .control-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    background: var(--surface-alt);
+    border: none;
+    border-radius: 999px;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+    font-family: var(--font-body);
+    color: var(--ink);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .control-btn:hover { background: var(--line-soft); }
+  .control-icon { line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .control-label { font-size: 0.66rem; font-weight: 700; white-space: nowrap; }
+
+  #micToggle.is-muted { background: var(--brick-tint); color: var(--brick-deep); }
+
+  .control-btn-danger { background: var(--pine); color: #fff; }
+  .control-btn-danger:hover { background: var(--pine-deep); }
+  .control-btn-danger.is-live { background: var(--brick); }
+  .control-btn-danger.is-live:hover { background: var(--brick-deep); }
+  .control-btn-danger .rec-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: currentColor;
+  }
+
+  .control-btn-muted { background: var(--surface-alt); }
+
+  .status-line {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+  #endMessage.status-line { color: var(--brick); font-weight: 600; }
+
+  @media (max-width: 720px) {
+    .room-shell { padding: 1rem 1rem 6.5rem; }
+    .people-panel { top: auto; bottom: 6.25rem; right: 1rem; width: 210px; }
+    .stage-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.65rem; }
+    .control-bar { gap: 0.3rem; padding: 0.4rem; }
+    .control-btn { padding: 0.5rem 0.7rem; }
+    .control-label { display: none; }
+  }
   
   /* ============================================================
      TABLES (admin.html, view_meetings.html)
