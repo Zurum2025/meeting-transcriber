@@ -10,7 +10,7 @@ import os
 import uuid
 import whisper
 from datetime import datetime, timedelta
-from huggingface_hub import InferenceClient
+from google import genai
 from reportlab.lib.pagesizes import LETTER
 from reportlab.pdfgen import canvas
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -19,10 +19,10 @@ from reportlab.lib.units import inch
 from dotenv import load_dotenv
 import enum
 from io import StringIO, BytesIO
-import nltk
-from nltk.tokenize import sent_tokenize
 
-nltk.download('punkt', quiet=True)
+import json
+
+
 
 # Verify flask_login import
 try:
@@ -425,51 +425,81 @@ def end_meeting(code):
 
 def summarize_transcript_gpt(transcript_text):
     try:
-        # Initialize Hugging Face client
-        client = InferenceClient(token=os.getenv("IMMT"))
-        if not os.getenv("IMMT"):
-            raise RuntimeError("Missing Hugging Face API token. Set it in apis.env as IMMT.")
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("Missing Gemini API key. Set GEMINI_API_KEY in your .env file.")
 
-        # Truncate transcript to ~3000 tokens (1 token ≈ 4 chars)
-        max_chars = 12000
+        client = genai.Client(api_key=api_key)
+
+        max_chars = 40000
         if len(transcript_text) > max_chars:
             transcript_text = transcript_text[:max_chars]
-            print(f"Truncated transcript to {max_chars} characters for Hugging Face")
+            print(f"Truncated transcript to {max_chars} characters for Gemini")
 
-        # Generate summary using Hugging Face
-        summary = client.summarization(
-            text=transcript_text,
-            model="facebook/bart-large-cnn"
-            
+        prompt = (
+            "You are generating structured meeting minutes from a raw, possibly "
+            "messy speech-to-text transcript. Read it carefully and extract the "
+            "requested fields. For action_points, capture every concrete task, "
+            "commitment, or follow-up mentioned — including ones phrased casually "
+            "(e.g. \"I'll handle the vendor call\" counts as an action point). "
+            "If a field genuinely isn't present in the transcript, say so briefly "
+            "rather than inventing details.\n\n"
+            f"Transcript:\n{transcript_text}"
         )
 
-        # Extract action points
-        action_points = []
-        sentences = sent_tokenize(transcript_text)
-        for sentence in sentences:
-            if any(keyword in sentence.lower() for keyword in ['assigned to', 'will do', 'responsible for', 'task']):
-                action_points.append(f"- {sentence.strip()}")
-        action_points_text = '\n'.join(action_points) if action_points else "- No specific action points identified."
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": {
+                    "type": "object",
+                    "properties": {
+                        "meeting_topic": {"type": "string"},
+                        "attendees": {"type": "string"},
+                        "agenda": {"type": "string"},
+                        "summary": {"type": "string"},
+                        "action_points": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "conclusion": {"type": "string"}
+                    },
+                    "required": [
+                        "meeting_topic", "attendees", "agenda",
+                        "summary", "action_points", "conclusion"
+                    ]
+                }
+            }
+        )
 
-        # Format into structured minutes
+        data = json.loads(response.text)
+
+        action_points = data.get("action_points") or []
+        if action_points:
+            action_points_text = '\n'.join(f"- {point}" for point in action_points)
+        else:
+            action_points_text = "- No specific action points identified."
+
         meeting_date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
         structured_summary = f"""
         Date and Time: {meeting_date}
-        Meeting Topic: General Discussion
-        Attendees: Participants
-        Agenda: Summarized from transcript
-        Summary of Discussions: {summary}
+        Meeting Topic: {data.get('meeting_topic', 'General Discussion')}
+        Attendees: {data.get('attendees', 'Participants')}
+        Agenda: {data.get('agenda', 'Summarized from transcript')}
+        Summary of Discussions: {data.get('summary', '')}
         Action Points:
         {action_points_text}
-        Conclusion: Meeting concluded with next steps assigned
+        Conclusion: {data.get('conclusion', 'Meeting concluded.')}
         """
         print(f"Generated summary: {structured_summary[:100]}...")
         return structured_summary
+    except json.JSONDecodeError as e:
+        print(f"Error parsing Gemini JSON response: {e}")
+        return f"Error generating summary: model returned malformed JSON"
     except Exception as e:
         print(f"Error in summarize_transcript_gpt: {e}")
         return f"Error generating summary: {str(e)}"
-
-
 
 @app.route('/upload_audio', methods=['POST'])
 def upload_audio():
