@@ -74,14 +74,18 @@ class Audio(db.Model):
     __tablename__ = 'audio'
     AudioID = db.Column(db.Integer, primary_key=True)
     MeetingCode = db.Column(db.Integer, db.ForeignKey('meetings.MeetingCode'), nullable=False)
+    UserID = db.Column(db.Integer, db.ForeignKey('users.UserID'), nullable=True)  # whose mic this clip is
+    ClientStartTime = db.Column(db.Float, nullable=True)  # epoch ms when this person's recorder started
     Timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 class Transcripts(db.Model):
     __tablename__ = 'transcripts'
     TranscriptID = db.Column(db.Integer, primary_key=True)
     MeetingCode = db.Column(db.Integer, db.ForeignKey('meetings.MeetingCode'), nullable=False)
-    AudioID = db.Column(db.Integer, db.ForeignKey('audio.AudioID'), nullable=False)
+    AudioID = db.Column(db.Integer, db.ForeignKey('audio.AudioID'), nullable=True)  # null for the merged transcript
     RawText = db.Column(db.Text, nullable=False)
+    SegmentsJSON = db.Column(db.Text, nullable=True)  # per-speaker Whisper segments, for merging
+    IsMerged = db.Column(db.Boolean, default=False, nullable=False)
 
 class Minutes(db.Model):
     __tablename__ = 'minutes'
@@ -96,6 +100,16 @@ class Participants(db.Model):
     UserID = db.Column(db.Integer, db.ForeignKey('users.UserID'), primary_key=True)
     Role = db.Column(db.Enum(ParticipantRole), nullable=False, default=ParticipantRole.Member)
     users = db.relationship('Users', backref='participants', lazy=True)
+
+_whisper_model = None
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "whisper")
+        os.makedirs(cache_dir, exist_ok=True)
+        print("Loading Whisper model...")
+        _whisper_model = whisper.load_model("tiny", download_root=cache_dir)
+    return _whisper_model
 
 # Admin Required Decorator
 def admin_required(f):
@@ -204,8 +218,9 @@ def delete_meeting(meeting_id):
 @admin_required
 def delete_audio(audio_id):
     audio = Audio.query.get_or_404(audio_id)
+    suffix = f"_{audio.UserID}" if audio.UserID else "_standalone"
     try:
-        os.remove(os.path.join('recordings', f"{audio.MeetingCode}_recording.webm"))
+        os.remove(os.path.join('Uploads', f"{audio.MeetingCode}{suffix}_recording.webm"))
     except FileNotFoundError:
         pass  # File might not exist
     db.session.delete(audio)
@@ -381,7 +396,7 @@ def my_meetings():
         meetings = Meetings.query.join(Participants).filter(Participants.UserID == current_user.UserID).order_by(Meetings.Date.desc()).all()
         print(f"Found {len(meetings)} meetings for user {current_user.UserID} ({current_user.Name}, is_admin={current_user.is_admin}): {[m.MeetingCode for m in meetings]}")
         audios = {}
-        transcripts = {}
+        transcripts = Transcripts.query.filter_by(MeetingCode=meeting.MeetingCode, IsMerged=True).first()
         minutes = {}
         for meeting in meetings:
             audio = Audio.query.filter_by(MeetingCode=meeting.MeetingCode).first()
@@ -423,7 +438,7 @@ def end_meeting(code):
     db.session.commit()
     return redirect(url_for('start_meeting'))
 
-def summarize_transcript_gpt(transcript_text):
+def summarize_transcript_gpt(transcript_text, attendee_names=None):
     try:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
@@ -434,16 +449,12 @@ def summarize_transcript_gpt(transcript_text):
         max_chars = 40000
         if len(transcript_text) > max_chars:
             transcript_text = transcript_text[:max_chars]
-            print(f"Truncated transcript to {max_chars} characters for Gemini")
 
         prompt = (
-            "You are generating structured meeting minutes from a raw, possibly "
-            "messy speech-to-text transcript. Read it carefully and extract the "
+            "You are generating structured meeting minutes from a speaker-labeled "
+            "transcript (each line starts with the speaker's name). Extract the "
             "requested fields. For action_points, capture every concrete task, "
-            "commitment, or follow-up mentioned — including ones phrased casually "
-            "(e.g. \"I'll handle the vendor call\" counts as an action point). "
-            "If a field genuinely isn't present in the transcript, say so briefly "
-            "rather than inventing details.\n\n"
+            "commitment, or follow-up mentioned, including who said it if named.\n\n"
             f"Transcript:\n{transcript_text}"
         )
 
@@ -456,150 +467,153 @@ def summarize_transcript_gpt(transcript_text):
                     "type": "object",
                     "properties": {
                         "meeting_topic": {"type": "string"},
-                        "attendees": {"type": "string"},
                         "agenda": {"type": "string"},
                         "summary": {"type": "string"},
-                        "action_points": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        },
+                        "action_points": {"type": "array", "items": {"type": "string"}},
                         "conclusion": {"type": "string"}
                     },
-                    "required": [
-                        "meeting_topic", "attendees", "agenda",
-                        "summary", "action_points", "conclusion"
-                    ]
+                    "required": ["meeting_topic", "agenda", "summary", "action_points", "conclusion"]
                 }
             }
         )
-
         data = json.loads(response.text)
 
         action_points = data.get("action_points") or []
-        if action_points:
-            action_points_text = '\n'.join(f"- {point}" for point in action_points)
-        else:
-            action_points_text = "- No specific action points identified."
-
+        action_points_text = '\n'.join(f"- {p}" for p in action_points) if action_points else "- No specific action points identified."
+        attendees_text = ', '.join(attendee_names) if attendee_names else 'Participants'
         meeting_date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+
         structured_summary = f"""
         Date and Time: {meeting_date}
         Meeting Topic: {data.get('meeting_topic', 'General Discussion')}
-        Attendees: {data.get('attendees', 'Participants')}
+        Attendees: {attendees_text}
         Agenda: {data.get('agenda', 'Summarized from transcript')}
         Summary of Discussions: {data.get('summary', '')}
         Action Points:
         {action_points_text}
         Conclusion: {data.get('conclusion', 'Meeting concluded.')}
         """
-        print(f"Generated summary: {structured_summary[:100]}...")
         return structured_summary
-    except json.JSONDecodeError as e:
-        print(f"Error parsing Gemini JSON response: {e}")
-        return f"Error generating summary: model returned malformed JSON"
+    except json.JSONDecodeError:
+        return "Error generating summary: model returned malformed JSON"
     except Exception as e:
         print(f"Error in summarize_transcript_gpt: {e}")
         return f"Error generating summary: {str(e)}"
+    
+
+def finalize_meeting_summary(code):
+    """Merge all per-participant transcripts received so far into one
+    speaker-labeled transcript, ordered by when each segment was actually
+    spoken, then regenerate the meeting minutes from it."""
+    try:
+        audio_rows = Audio.query.filter_by(MeetingCode=code).filter(Audio.UserID.isnot(None)).all()
+        if not audio_rows:
+            return
+
+        entries = []  # (absolute_start_seconds, speaker_name, text)
+        for audio in audio_rows:
+            speaker_transcript = Transcripts.query.filter_by(AudioID=audio.AudioID, IsMerged=False).first()
+            if not speaker_transcript or not speaker_transcript.SegmentsJSON:
+                continue
+            user = Users.query.get(audio.UserID)
+            speaker_name = user.Name if user else f"User {audio.UserID}"
+            base_time = (audio.ClientStartTime / 1000.0) if audio.ClientStartTime else 0
+            for seg in json.loads(speaker_transcript.SegmentsJSON):
+                text = seg.get('text', '').strip()
+                if text:
+                    entries.append((base_time + seg.get('start', 0), speaker_name, text))
+
+        if not entries:
+            return
+        entries.sort(key=lambda e: e[0])
+
+        # Group consecutive turns from the same speaker into one line
+        merged_lines = []
+        current_speaker, current_words = None, []
+        for _, speaker, text in entries:
+            if speaker == current_speaker:
+                current_words.append(text)
+            else:
+                if current_speaker is not None:
+                    merged_lines.append(f"{current_speaker}: {' '.join(current_words)}")
+                current_speaker, current_words = speaker, [text]
+        merged_lines.append(f"{current_speaker}: {' '.join(current_words)}")
+        merged_text = '\n'.join(merged_lines)
+
+        # Replace any earlier merged transcript + minutes for this meeting
+        old_merged = Transcripts.query.filter_by(MeetingCode=code, IsMerged=True).first()
+        if old_merged:
+            Minutes.query.filter_by(TranscriptID=old_merged.TranscriptID).delete()
+            db.session.delete(old_merged)
+            db.session.commit()
+
+        merged_transcript = Transcripts(MeetingCode=code, AudioID=None, RawText=merged_text, IsMerged=True)
+        db.session.add(merged_transcript)
+        db.session.commit()
+
+        attendee_names = [p.users.Name for p in Participants.query.filter_by(MeetingCode=code).join(Users).all()]
+        summary = summarize_transcript_gpt(merged_text, attendee_names=attendee_names)
+
+        db.session.add(Minutes(MeetingCode=code, TranscriptID=merged_transcript.TranscriptID, SummaryText=summary))
+        db.session.commit()
+        print(f"Refreshed merged transcript + minutes for meeting {code} ({len(audio_rows)} speaker clip(s))")
+    except Exception as e:
+        print(f"Error in finalize_meeting_summary: {e}")
+        db.session.rollback()
 
 @app.route('/upload_audio', methods=['POST'])
 def upload_audio():
     try:
         code = request.args.get('code', type=int)
         if not code:
-            print("No meeting code provided")
             return jsonify({'error': 'No meeting code provided'}), 400
-        
+
         meeting = Meetings.query.filter_by(MeetingCode=code).first()
         if not meeting:
-            print(f"Meeting {code} not found")
             return jsonify({'error': 'Meeting not found'}), 404
-        if meeting.IsEnded:
-            print(f"Meeting {code} already ended")
-            return jsonify({'error': 'Meeting already ended'}), 400
 
         if 'audio' not in request.files:
-            print("No audio file provided")
             return jsonify({'error': 'No audio file provided'}), 400
         file = request.files['audio']
         if file.filename == '':
-            print("No file selected")
             return jsonify({'error': 'No file selected'}), 400
 
-        # Save audio file
+        user_id = request.form.get('user_id', type=int)
+        client_start_time = request.form.get('client_start_time', type=float)
+
         upload_folder = 'Uploads'
         os.makedirs(upload_folder, exist_ok=True)
-        audio_path = os.path.join(upload_folder, f"{code}_recording.webm")
+        suffix = f"_{user_id}" if user_id else "_standalone"
+        audio_path = os.path.join(upload_folder, f"{code}{suffix}_recording.webm")
         file.save(audio_path)
         print(f"Saved audio to {audio_path}")
 
-        # Add to Audio table
-        audio_entry = Audio(MeetingCode=code, Timestamp=datetime.utcnow())
+        audio_entry = Audio(
+            MeetingCode=code, UserID=user_id,
+            ClientStartTime=client_start_time, Timestamp=datetime.utcnow()
+        )
         db.session.add(audio_entry)
         db.session.commit()
-        print(f"Added audio entry for meeting {code}, AudioID: {audio_entry.AudioID}")
 
-        # Transcribe audio with Whisper
-        cache_dir = "C:/Users/Zurum/.cache/whisper"
-        os.makedirs(cache_dir, exist_ok=True)
-        model_name = "tiny"
-        cache_path = os.path.join(cache_dir, f"{model_name}.pt")
-        
-        max_attempts = 3
-        for attempt in range(1, max_attempts + 1):
-            try:
-                print(f"Loading Whisper model (attempt {attempt}/{max_attempts})")
-                model = whisper.load_model(model_name, download_root=cache_dir)
-                break
-            except RuntimeError as e:
-                print(f"Whisper model load error: {e}")
-                if "checksum does not match" in str(e) and os.path.exists(cache_path):
-                    os.remove(cache_path)
-                    print(f"Cleared corrupted model cache: {cache_path}")
-                if attempt == max_attempts:
-                    raise Exception("Failed to load Whisper model after multiple attempts")
-        
+        model = get_whisper_model()
         result = model.transcribe(audio_path, fp16=False)
         transcription = result['text'].strip()
-        if not transcription:
-            print("Transcription is empty")
-            return jsonify({'error': 'Transcription failed: No text generated'}), 400
-        print(f"Generated transcript: {transcription[:100]}...")
+        segments = result.get('segments', [])
 
-        # Add to Transcripts table
         transcript = Transcripts(
-            MeetingCode=code,
-            AudioID=audio_entry.AudioID,
-            RawText=transcription
+            MeetingCode=code, AudioID=audio_entry.AudioID,
+            RawText=transcription, SegmentsJSON=json.dumps(segments), IsMerged=False
         )
         db.session.add(transcript)
         db.session.commit()
-        print(f"Saved transcript for meeting {code}, TranscriptID: {transcript.TranscriptID}")
+        print(f"Saved per-speaker transcript for audio {audio_entry.AudioID}")
 
-        # Generate summary with GPT-3.5-turbo
-        try:
-            summary = summarize_transcript_gpt(transcription)
-            print(f"Generated summary: {summary[:100]}...")
-        except Exception as e:
-            print(f"Error generating summary: {e}")
-            summary = f"Error generating summary: {str(e)}"
-
-        # Add to Minutes table
-        minute = Minutes(
-            MeetingCode=code,
-            TranscriptID=transcript.TranscriptID,
-            SummaryText=summary
-        )
-        db.session.add(minute)
-        db.session.commit()
-        print(f"Saved summary for meeting {code}: {summary[:100]}...")
-
-        return jsonify({'message': 'Audio uploaded, transcribed, and summarized'}), 200
+        finalize_meeting_summary(code)
+        return jsonify({'message': 'Audio uploaded and processed'}), 200
     except Exception as e:
         print(f"Error in upload_audio: {e}")
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-
-    
 
 
 def save_summary_as_pdf(text, filename):
@@ -618,7 +632,8 @@ def save_summary_as_pdf(text, filename):
 @login_required
 def download_audio(audio_id):
     audio = Audio.query.get_or_404(audio_id)
-    audio_path = os.path.join('uploads', f"{audio.MeetingCode}_recording.webm")
+    suffix = f"_{audio.UserID}" if audio.UserID else "_standalone"
+    audio_path = os.path.join('Uploads', f"{audio.MeetingCode}{suffix}_recording.webm")
     if os.path.exists(audio_path):
         return send_file(audio_path, as_attachment=True, download_name=f"meeting_{audio.MeetingCode}_audio.webm")
     abort(404)

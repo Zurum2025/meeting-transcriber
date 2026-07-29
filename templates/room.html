@@ -96,6 +96,7 @@
   let meetingSeconds = 0;
   let speakingTimeout = null;
   let micMuted = false;
+  let clientStartTime = null; // epoch ms when THIS client's recorder started
 
   const micStateById = {};   // userId -> muted (bool)
   const speakingIds = new Set();
@@ -227,6 +228,46 @@
     socket.emit('mic_status', { code: code, user_id: userId, muted: micMuted });
   }
 
+  // --- Per-participant recording ---
+  // Every participant (not just the chairman) records their own mic locally
+  // and uploads it tagged with their user id + when their clip started, so
+  // the backend can merge everyone's speech into one speaker-labeled
+  // transcript ordered by when it was actually said.
+  function beginRecording() {
+    if (!localStream) {
+      console.error('Cannot start recording: localStream is not initialized');
+      return;
+    }
+    if (recorder && recorder.state === 'recording') return;
+    chunks = [];
+    clientStartTime = Date.now();
+    recorder = new MediaRecorder(localStream);
+    recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = uploadRecording;
+    recorder.start();
+    console.log('Local recording started for user', userId);
+  }
+
+  async function uploadRecording() {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('audio', blob, `${code}_${userId}_recording.webm`);
+    formData.append('user_id', userId);
+    formData.append('client_start_time', clientStartTime);
+    try {
+      const response = await fetch(`/upload_audio?code=${code}`, {
+        method: 'POST',
+        body: formData
+      });
+      document.getElementById('recordingStatus').textContent = response.ok
+        ? 'Your audio was uploaded ✅'
+        : 'Upload failed — your part may be missing from the minutes';
+    } catch (error) {
+      console.error('Upload error:', error);
+      document.getElementById('recordingStatus').textContent = 'Upload error — your part may be missing from the minutes';
+    }
+  }
+
   // --- Socket wiring ---
   socket.on('connect', () => {
     console.log('Connected to Socket.IO server, isChairman:', isChairman);
@@ -325,29 +366,7 @@
         try {
           isMeetingStarted = true;
           document.body.classList.add('is-live');
-          chunks = [];
-          recorder = new MediaRecorder(localStream);
-          recorder.ondataavailable = e => {
-            chunks.push(e.data);
-          };
-          recorder.onstop = async () => {
-            console.log('Recorder stopped, uploading audio');
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append("audio", blob, code + "_recording.webm");
-            try {
-              const response = await fetch(`/upload_audio?code=${code}`, {
-                method: "POST",
-                body: formData
-              });
-              document.getElementById("recordingStatus").textContent = response.ok ? "Recording uploaded ✅" : "Upload failed";
-              socket.emit('meeting_ended', { code: code });
-            } catch (error) {
-              console.error('Upload error:', error);
-              document.getElementById('recordingStatus').textContent = "Upload error";
-            }
-          };
-          recorder.start();
+          beginRecording();
           console.log('Recording started');
           if (label) label.textContent = 'End Meeting';
           btn.classList.add('is-live');
@@ -375,9 +394,10 @@
           if (label) label.textContent = 'Leave Room';
           btn.classList.remove('is-live');
           btn.onclick = () => window.location.href = "{{ url_for('start_meeting') }}";
-          document.getElementById("recordingStatus").textContent = "Recording stopped";
+          document.getElementById("recordingStatus").textContent = "Recording stopped, uploading your audio…";
           document.getElementById("endMessage").style.display = "block";
           isMeetingStarted = false;
+          socket.emit('meeting_ended', { code: code });
         } catch (error) {
           console.error('Error stopping recorder:', error);
           document.getElementById('recordingStatus').textContent = 'Failed to stop recording';
@@ -391,7 +411,11 @@
     });
   }
 
-  // Handle meeting start/end events for all users
+  // Handle meeting start/end events for all users.
+  // Note: because the server broadcasts these with include_self=False, the
+  // participant who triggered start/stop (the chairman) won't receive their
+  // own event here — only everyone else does, which is what starts/stops
+  // recording on member devices.
   socket.on('meeting_started', data => {
     console.log('Received meeting_started:', data);
     isMeetingStarted = true;
@@ -399,6 +423,7 @@
     document.getElementById("recordingStatus").textContent = "Meeting recording in progress…";
     document.getElementById("endMessage").style.display = "none";
     startTimer(data.seconds || 0);
+    beginRecording();
   });
 
   socket.on('meeting_ended', data => {
@@ -406,8 +431,11 @@
     isMeetingStarted = false;
     document.body.classList.remove('is-live');
     stopTimer();
-    document.getElementById("recordingStatus").textContent = "Recording stopped";
+    document.getElementById("recordingStatus").textContent = "Recording stopped, uploading your audio…";
     document.getElementById("endMessage").style.display = "block";
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
+    }
     if (!isChairman) {
       const exitBtn = document.getElementById("exitBtn");
       if (exitBtn) exitBtn.querySelector('.control-label').textContent = 'Leave Room';
