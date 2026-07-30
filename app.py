@@ -396,11 +396,11 @@ def my_meetings():
         meetings = Meetings.query.join(Participants).filter(Participants.UserID == current_user.UserID).order_by(Meetings.Date.desc()).all()
         print(f"Found {len(meetings)} meetings for user {current_user.UserID} ({current_user.Name}, is_admin={current_user.is_admin}): {[m.MeetingCode for m in meetings]}")
         audios = {}
-        transcripts = Transcripts.query.filter_by(MeetingCode=meeting.MeetingCode, IsMerged=True).first()
+        transcripts = {}
         minutes = {}
         for meeting in meetings:
             audio = Audio.query.filter_by(MeetingCode=meeting.MeetingCode).first()
-            transcript = Transcripts.query.filter_by(MeetingCode=meeting.MeetingCode).first()
+            transcript = Transcripts.query.filter_by(MeetingCode=meeting.MeetingCode, IsMerged=True).first()
             minute = Minutes.query.filter_by(MeetingCode=meeting.MeetingCode).first()
             audios[meeting.MeetingCode] = audio
             transcripts[meeting.MeetingCode] = transcript
