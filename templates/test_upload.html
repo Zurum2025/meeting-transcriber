@@ -5,13 +5,20 @@
   <span class="eyebrow">Standalone test</span>
   <h2>Upload audio for transcription &amp; summarization</h2>
   <p>Use this to test the Whisper + summarization pipeline directly, without opening a full meeting room.</p>
+
+  {% if error %}
+  <div class="alert alert-danger mb-3" role="alert">{{ error }}</div>
+  {% endif %}
+
   <div class="card">
     <div class="card-body">
       <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
         <div class="mb-3">
-          <input type="file" name="audio" accept="audio/*" required class="form-control">
+          {{ form.audio(class_="form-control") }}
+          {% for err in form.audio.errors %}<small class="text-danger d-block mt-1">{{ err }}</small>{% endfor %}
         </div>
-        <button type="submit" class="btn btn-primary">Upload</button>
+        {{ form.submit(class_="btn btn-primary") }}
       </form>
     </div>
   </div>

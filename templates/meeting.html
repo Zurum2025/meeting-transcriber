@@ -23,7 +23,8 @@
                     <h5 class="card-title">Start a meeting</h5>
                     <p class="card-text">Spin up a new room and get a shareable code instantly.</p>
                     <form method="post" class="mt-auto">
-                        <button type="submit" name="start" class="btn btn-light w-100">Create meeting</button>
+                        {{ start_form.hidden_tag() }}
+                        {{ start_form.start(class_="btn btn-light w-100") }}
                     </form>
                 </div>
             </div>
@@ -37,8 +38,10 @@
                     <h5 class="card-title">Join a meeting</h5>
                     <p class="card-text">Enter a meeting code to jump into an existing room.</p>
                     <form method="post" class="mt-auto">
-                        <input type="text" name="code" placeholder="Meeting code" class="form-control mb-2" required>
-                        <button type="submit" name="join" class="btn btn-outline-primary w-100">Join</button>
+                        {{ join_form.hidden_tag() }}
+                        {{ join_form.code(class_="form-control mb-2", placeholder="Meeting code") }}
+                        {% for err in join_form.code.errors %}<small class="text-danger d-block mb-2">{{ err }}</small>{% endfor %}
+                        {{ join_form.join(class_="btn btn-outline-primary w-100") }}
                     </form>
                 </div>
             </div>
