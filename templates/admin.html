@@ -35,6 +35,7 @@
             <td>
               {% if not user.is_admin %}
               <form action="{{ url_for('delete_user', user_id=user.UserID) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
               </form>
               {% endif %}
@@ -72,6 +73,7 @@
             <td>{{ participants[meeting.MeetingCode]|map(attribute='Name')|join(', ') if participants[meeting.MeetingCode] else 'None' }}</td>
             <td>
               <form action="{{ url_for('delete_meeting', meeting_id=meeting.MeetingCode) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
               </form>
             </td>
@@ -104,6 +106,7 @@
             <td>{{ recording.Timestamp }}</td>
             <td>
               <form action="{{ url_for('delete_audio', audio_id=recording.AudioID) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
               </form>
             </td>
