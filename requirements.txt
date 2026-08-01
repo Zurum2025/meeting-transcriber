@@ -3,6 +3,11 @@ Flask-Login
 Flask-WTF
 Flask-SQLAlchemy
 Flask-SocketIO
+Flask-Migrate
 eventlet
 email-validator
 Werkzeug
+python-dotenv
+openai-whisper
+google-genai
+reportlab
