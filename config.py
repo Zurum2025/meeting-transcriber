@@ -17,6 +17,7 @@ class Config:
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "Uploads")
 
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+    GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     # Socket.IO
     SOCKETIO_CORS_ALLOWED_ORIGINS = os.environ.get("SOCKETIO_CORS_ALLOWED_ORIGINS", "*")
