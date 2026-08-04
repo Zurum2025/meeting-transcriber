@@ -1,5 +1,4 @@
 from flask import Flask
-
 from commands import register_commands
 from config import Config
 from extensions import csrf, db, login_manager, migrate, socketio
@@ -40,9 +39,8 @@ def create_app(config_class=Config):
 app = create_app()
 
 if __name__ == "__main__":
-    # NOTE: db.create_all() and the auto-created admin user are gone.
     # Set up a fresh environment with:
-    #   flask db init          (first time only)
+    #   flask db init   (first time only)
     #   flask db migrate -m "initial"
     #   flask db upgrade
     #   flask create-admin
