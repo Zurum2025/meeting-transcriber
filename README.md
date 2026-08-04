@@ -120,7 +120,23 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ---
 
-### 6. Run the Application
+### 6. Setup Database
+
+```bash
+flask db init
+flask db migrate -m "initial"
+flask db upgrade
+```
+---
+
+### 7. Create Administrator
+
+```bash
+flask create-admin
+```
+Then enter the required details as shown on the screen
+
+### 8. Run the Application
 
 ```bash
 python app.py
