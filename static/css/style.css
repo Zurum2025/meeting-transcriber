@@ -455,6 +455,8 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 0.75rem;
+    position: relative;
+    z-index: 35;
   }
   .room-topbar-right { display: flex; align-items: center; gap: 0.75rem; }
 
@@ -667,7 +669,7 @@
   /* ---- Collapsible corner participants panel ---- */
   .people-panel {
     position: fixed;
-    top: 88px;
+    top: 140px;
     right: 1.5rem;
     width: 250px;
     max-width: calc(100vw - 2rem);
